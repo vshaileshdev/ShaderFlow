@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShaderFlow</title>
+    <style>
+      :root {
+        --bg-main: #0d1117;
+        --bg-panel: #161b22;
+        --border-subtle: #30363d;
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --accent: #58a6ff;
+        --accent-glow: rgba(88, 166, 255, 0.4);
+        --error: #f85149;
+        --success: #2ea043;
+        --fallback: #d29922;
+        --node-bg: rgba(22, 27, 34, 0.85);
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: var(--bg-main);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text-primary);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        height: 60px;
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        justify-content: space-between;
+        background: var(--bg-panel);
+        flex-shrink: 0;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      }
+      .brand-area {
+        display: flex;
+        align-items: center;
+      }
+      .brand {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      .subtitle {
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-weight: 400;
+        margin-left: 16px;
+        border-left: 1px solid var(--border-subtle);
+        padding-left: 16px;
+      }
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .action-btn {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .action-btn:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .stat-badge {
+        font-size: 12px;
+        color: var(--text-secondary);
+        background: var(--bg-main);
+        padding: 4px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--border-subtle);
+      }
+      #status-indicator {
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 11px;
+        border: 1px solid var(--border-subtle);
+        background: var(--bg-main);
+        letter-spacing: 0.5px;
+      }
+      #status-indicator.valid { border-color: var(--success); color: var(--success); }
+      #status-indicator.error { border-color: var(--error); color: var(--error); }
+      #status-indicator.fallback { border-color: var(--fallback); color: var(--fallback); }
+      
+      main {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+      .left-col {
+        width: 50%;
+        min-width: 500px;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-subtle);
+        background: var(--bg-panel);
+        z-index: 10;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.2);
+      }
+      .preview-header {
+        padding: 16px 24px;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+      }
+      .preview-sub { color: var(--accent); }
+      .preview-container {
+        width: 100%;
+        flex: 1;
+        background: #000;
+        border-bottom: 1px solid var(--border-subtle);
+        position: relative;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      #glcanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .dev-panels {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      details.drawer {
+        background: var(--bg-main);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      details.drawer summary {
+        padding: 12px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        background: var(--bg-panel);
+        outline: none;
+      }
+      .drawer-content {
+        padding: 12px;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--text-secondary);
+        max-height: 250px;
+        overflow-y: auto;
+      }
+      #history {
+        list-style: none;
+        padding: 0; margin: 0;
+      }
+      #history li {
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 12px;
+      }
+      #history li:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+      .cmd-text { color: var(--text-primary); font-weight: 500; }
+      .cmd-res.success { color: var(--success); margin-top: 4px; }
+      .cmd-res.error { color: var(--error); margin-top: 4px; }
+      #glsl-view { margin: 0; white-space: pre-wrap; font-size: 11px; line-height: 1.4; color: #a5d6ff; }
+
+      .graph-workspace {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background-color: var(--bg-main);
+        background-image: 
+          linear-gradient(rgba(48, 54, 61, 0.2) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.2) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+      .graph-inner {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        transform-origin: 0 0;
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      /* Node UI */
+      .node-card {
+        position: absolute;
+        background: var(--node-bg);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 0;
+        font-size: 12px;
+        min-width: 220px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        backdrop-filter: blur(12px);
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .node-card.highlight {
+        animation: highlight-pulse 0.6s ease-out;
+      }
+      @keyframes highlight-pulse {
+        0% { box-shadow: 0 0 0 2px var(--accent), 0 0 15px var(--accent); transform: scale(1.02); }
+        100% { box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: scale(1); }
+      }
+      .node-card .title {
+        font-weight: 600;
+        color: var(--text-primary);
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-transform: capitalize;
+      }
+      .node-card .id {
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 400;
+        font-family: ui-monospace, monospace;
+      }
+      
+      /* Subtle accents per type */
+      .node-card.type-uv, .node-card.type-position, .node-card.type-time { border-top: 3px solid #3fb950; }
+      .node-card.type-color, .node-card.type-displacement { border-top: 3px solid #f85149; }
+      .node-card.type-math, .node-card.type-noise, .node-card.type-sine { border-top: 3px solid #58a6ff; }
+
+      .node-port {
+        display: flex;
+        align-items: center;
+        padding: 8px 14px;
+        color: var(--text-secondary);
+      }
+      .node-port.input { justify-content: flex-start; }
+      .node-port.output { justify-content: flex-end; }
+      
+      .port-label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .port-type {
+        font-size: 9px;
+        text-transform: uppercase;
+        background: rgba(255,255,255,0.1);
+        padding: 2px 4px;
+        border-radius: 3px;
+        color: #a5d6ff;
+      }
+
+      .port-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #21262d;
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 0 2px var(--bg-main);
+        z-index: 12;
+      }
+      .node-port.input .port-dot { margin-right: 12px; margin-left: -20px; }
+      .node-port.output .port-dot { margin-left: 12px; margin-right: -20px; }
+      
+      .node-params {
+        background: rgba(0,0,0,0.2);
+        padding: 10px 14px;
+        color: var(--text-secondary);
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      footer {
+        height: 70px;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--bg-panel);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        z-index: 100;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
+      }
+      .input-wrapper {
+        position: relative;
+        width: 700px;
+        max-width: 90%;
+      }
+      .mic-icon {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        color: var(--accent);
+        pointer-events: none;
+      }
+      .wispr-badge {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.1);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+      input[type="text"] {
+        width: 100%;
+        background: var(--bg-main);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        padding: 16px 80px 16px 52px;
+        border-radius: 8px;
+        font-size: 15px;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+      input[type="text"]::placeholder {
+        color: #484f58;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand-area">
+        <div class="brand">ShaderFlow</div>
+        <div class="subtitle">Voice-Native Generative Graphics</div>
+      </div>
+      <div class="toolbar-actions">
+        <button id="btn-fit" class="action-btn">Fit Graph</button>
+        <button id="btn-clear" class="action-btn">Clear Graph</button>
+        <div class="stat-badge"><span id="stat-nodes">0</span> Nodes</div>
+        <div class="stat-badge"><span id="stat-edges">0</span> Edges</div>
+        <div id="status-indicator">READY</div>
+      </div>
+    </header>
+    
+    <main>
+      <div class="left-col">
+        <div class="preview-header">
+          <div>LIVE SHADER PREVIEW</div>
+          <div class="preview-sub">WebGL &bull; GPU</div>
+        </div>
+        <div class="preview-container">
+          <canvas id="glcanvas"></canvas>
+        </div>
+        <div class="dev-panels">
+          <details class="drawer" open>
+            <summary>Command History</summary>
+            <div class="drawer-content">
+              <ul id="history"></ul>
+            </div>
+          </details>
+          <details class="drawer">
+            <summary>Generated GLSL</summary>
+            <div class="drawer-content">
+              <pre id="glsl-view"></pre>
+            </div>
+          </details>
+        </div>
+      </div>
+      
+      <div class="graph-workspace" id="graph-workspace">
+        <div id="graph-state-view" class="graph-inner"></div>
+      </div>
+    </main>
+    
+    <footer>
+      <div class="input-wrapper">
+        <span class="mic-icon">🎙️</span>
+        <input type="text" id="cmd-input" placeholder="Speak what you want to create... or describe a shader change..." autocomplete="off" />
+        <span class="wispr-badge">Wispr Flow</span>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
